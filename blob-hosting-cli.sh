@@ -2,10 +2,10 @@
 #variables
 variables(){
         echo "Fill in for automation:"
-        read -p "1.Subscription ID: " sub-ID
+        read -p "1.Subscription ID: " sub_ID
         read -p "2.Resource Group: " RG
         read -p "Location: " location
-        read -p "Storage Account: " storage-account
+        read -p "Storage Account: " storage_account
         read -p "Front Door Name: " FD
 }
 
@@ -17,7 +17,7 @@ azure-login(){
 #Set Subscriotion
 Set-subscription(){
         echo "Setting Subscription..."
-        az account set --subscription "$sub-ID" && echo "Set success."|| echo "Failed to Set/invalid subscription ID!"
+        az account set --subscription "$sub_ID" && echo "Set success."|| echo "Failed to Set/invalid subscription ID!"
 }
 
 
@@ -37,7 +37,7 @@ private-storage-ac(){
 
 #Enable Static Website
 enable-static-web(){
-        az storage blob service-properties update --account-name "$storage-account" --static-website --index-document \
+        az storage blob service-properties update --account-name "$storage_account" --static-website --index-document \
   index.html --404-document 404.html && echo "Static Web enabled: " || echo "Failed to enable static web"
 }
 
