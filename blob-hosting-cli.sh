@@ -3,7 +3,7 @@
 variables(){
         echo "Fill in for automation:"
         read -p "1.Subscription ID: " sub_ID
-        read -p "2.Resource Group: " RG
+        read -p "2.Resource Group: " R-G
         read -p "Location: " location
         read -p "Storage Account: " storage_account
         read -p "Front Door Name: " FD
