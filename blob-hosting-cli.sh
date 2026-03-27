@@ -1,57 +1,104 @@
-  GNU nano 7.2                                                                                                                                                                                                                        blob-host.sh
-#variables
-variables(){
-        echo "Fill in for automation:"
-        read -p "1.Subscription ID: " sub_ID
-        read -p "2.Resource Group: " R-G
-        read -p "Location: " location
-        read -p "Storage Account: " storage_account
-        read -p "Front Door Name: " FD
-}
+  GNU nano 7.2
+set -euo pipefail                                                                                                                                                                                                                        blob-host.s
+
 
 #Login to Azure
-azure-login(){
-        az login
+azure_login(){
+	echo "Checking Azure login..."
+	az account show >/dev/null 2>&1 || az login
+	echo "Azure login successful"
 }
 
+
+get_subscription() {
+	echo "Fetching available subscriptions..."
+	az account list --output table
+	echo "Paste the Subscription ID above"
+	read -p "Enter subscription ID: " sub_id
+	if [ -z "$sub_id" ]; then
+		echo "Subscription ID cannot be empty"
+		exit 1
+	fi
+
+}
+
+
+#validating inputs
+validate_inputs() {
+	[ -z "$rg" ] && { echo "Resource Group cannot be empty"; exit 1; }
+	[ -z "$location" ] && { echo "Location cannot be empty"; exit 1; }
+	[ -z "$storage_account" ] && { echo "Storage account cannot be empty"; exit 1; }
+	[ -z "$fd" ] && { echo "Front Door name cannot be empty"; exit 1; }
+}
+
+
+
+#variables
+variables(){
+	echo "Fill in for automation:"
+	echo "1. Subscription ID"
+	get_subscription
+	read -p "2.Resource Group: " rg
+	read -p "Location: " location
+	read -p "Storage Account: " storage_account
+	read -p "Front Door Name: " fd
+
+	validate_inputs
+}
+
+
 #Set Subscriotion
-Set-subscription(){
+set_subscription(){
         echo "Setting Subscription..."
-        az account set --subscription "$sub_ID" && echo "Set success."|| echo "Failed to Set/invalid subscription ID!"
+        az account set --subscription "$sub_id" && echo "Set success."
 }
 
 
 #Create Resource Group
 resource-group(){
-        az group create --name "$RG" --location "$location"
+        az group create --name "$rg" --location "$location"
 }
 
 
 #Create private storage Account
-private-storage-ac(){
-        az storage account create --name "$storage-account" --resource-group "$RG" --location "$location" --sku \
-  Standard_LRS --kind StorageV2 --enable-private-endpoint true --https-only true && \
-  echo "Private storage account created succesfully" || echo "Unable to create private storage account!"
+create_storage_account(){
+	echo "Checking if storage account exists..."
+	if az storage account show --name "$storage_account" --resource-group "$rg" >/dev/null 2>&1; then
+		echo "Storage account already exists. Skipping creation."
+	else
+		echo "Creating storage account..."
+		az storage account create --name "$storage_account" --resource-group "$rg" --location "$location" --sku \
+  Standard_LRS --kind StorageV2 --https-only true && echo "Private storage account created succesfully"
 }
 
 
 #Enable Static Website
-enable-static-web(){
-        az storage blob service-properties update --account-name "$storage_account" --static-website --index-document \
-  index.html --404-document 404.html && echo "Static Web enabled: " || echo "Failed to enable static web"
+enable_static_web(){
+	echo "Checking if storage account exists..."
+	if ! az storage account show --name "$storage_account" --resource-group "$rg" >/dev/null 2>&1; then
+        	echo "Storage account does not exist. Cannot enable static website."
+
+		echo "Creating private storage account"
+		create_storage_account
+	fi
+
+	az storage blob service-properties update --account-name "$storage_account" --static-website --index-document \
+  index.html --404-document 404.html --auth-mode login && echo "Static Web enabled: "
 }
+
 
 #Upload website files
 upload-web-files(){
-        echo "Looking for web files directory (website-files) in home directory..."
-        cd ~ && cd website-files || echo \
-  "Directory Not found, Make sure website-files directory is located in home directory"
+	echo "Looking for web files directory (website-files) in home directory..."
+	cd ~ && cd website-files || echo "Directory Not found, Make sure website-files directory is located in home directory"
         echo "Currently in website-files directory"
 
 
         az storage blob upload-batch --account-name "$storage-account" --destination '$web' --source . \
   --auth-mode login
 }
+
+
 vnet-pe(){
         echo "Creating VNet + Subnet..."
         az network vnet create --name "$VNet" --resource-group "$RG" --location --address-prefix 10.0.0.0/16 \
