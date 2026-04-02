@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>All Tasks</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="all-tasks-container">
+      <h1 class="all-tasks-title">All Tasks (Monday – Friday)</h1>
+
+      {% for day, day_tasks in tasks.items() %}
+      <div class="all-tasks-day-card">
+        <h2 class="all-tasks-day-title">{{ day }}</h2>
+
+        {% if day_tasks %}
+        <ul class="all-tasks-list">
+          {% for task in day_tasks %}
+          <li class="all-tasks-item">
+            <strong class="all-tasks-name"> {{ task.task_name }} </strong><br />
+            <small class="all-tasks-time">
+              {{ task.task_date }} at {{ task.task_time }}
+            </small>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="all-tasks-empty">No tasks</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+
+      <a href="/tasks" class="all-tasks-back-link">⬅ Back to Weekly View</a>
+    </div>
+  </body>
+</html>

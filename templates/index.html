@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Home - Weekly To-Do List</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="home-container">
+      <h1>Welcome to Your Weekly Planner</h1>
+    
+      <div class="options">
+        <a href="{{ url_for('tasks_page') }}" class="option-card">
+          <h2>Add Tasks</h2>
+          <p>Go to your weekly to-do list and manage your tasks.</p>
+        </a>
+
+        <a href="{{ url_for('all_tasks_page') }}" class="option-card">
+          <h2>View Tasks</h2>
+          <p>View all scheduled tasks for the week.</p>
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,82 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Weekly To-Do List</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='style.css') }}"
+    />
+      
+  </head>
+  <body>
+    <div class="week-container">
+      <h1>Weekly To-Do List</h1>
+       <a href="{{ url_for('all_tasks_page') }}" class="view-task-btn">
+         View Tasks </a>
+      <div class="day-container" id="Monday">
+        <p>Monday</p>
+        <div class="input-group">
+          <input type="text" placeholder="Task name" class="task-name" />
+          <input type="date" class="task-date" />
+          <input type="time" class="task-time" />
+          <button type="button" onclick="addTask('Monday')">Add</button>
+        </div>
+        <ul class="task-list"></ul>
+      </div>
+
+      <div class="day-container" id="Tuesday">
+        <p>Tuesday</p>
+        <div class="input-group">
+          <input type="text" placeholder="Task name" class="task-name" />
+          <input type="date" class="task-date" />
+          <input type="time" class="task-time" />
+          <button type="button" onclick="addTask('Tuesday')">Add</button>
+        </div>
+        <ul class="task-list"></ul>
+      </div>
+
+      <div class="day-container" id="Wednesday">
+        <p>Wednesday</p>
+        <div class="input-group">
+          <input type="text" placeholder="Task name" class="task-name" />
+          <input type="date" class="task-date" />
+          <input type="time" class="task-time" />
+          <button type="button" onclick="addTask('Wednesday')">Add</button>
+        </div>
+        <ul class="task-list"></ul>
+      </div>
+
+      <div class="day-container" id="Thursday">
+        <p>Thursday</p>
+        <div class="input-group">
+          <input type="text" placeholder="Task name" class="task-name" />
+          <input type="date" class="task-date" />
+          <input type="time" class="task-time" />
+          <button type="button" onclick="addTask('Thursday')">Add</button>
+        </div>
+        <ul class="task-list"></ul>
+      </div>
+
+      <div class="day-container" id="Friday">
+        <p>Friday</p>
+        <div class="input-group">
+          <input type="text" placeholder="Task name" class="task-name" />
+          <input type="date" class="task-date" />
+          <input type="time" class="task-time" />
+          <button type="button" onclick="addTask('Friday')">Add</button>
+        </div>
+        <ul class="task-list"></ul>
+      </div>
+        <a href="{{ url_for('dashboard') }}" class="view-task-btn">
+         Dashboard </a>
+    </div>
+    <script src="{{ url_for('static', filename='task.js') }}"></script>
+  </body>
+</html>

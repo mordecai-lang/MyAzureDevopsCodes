@@ -1,23 +1,20 @@
 set -euo pipefail                                                                                                                                                                                                                        blob-host.s
 
 #Login to Azure
-azure_login(){
+azure_login() {
 	echo "[INFO] Checking Azure login..."
-	az account show >/dev/null 2>&1 || az login
-	echo "Azure login successful"
-}
-
-
-get_subscription() {
-	echo "[INFO] Fetching available subscriptions..."
-	az account list --output table
-	echo "Paste the Subscription ID above"
-	read -p "Enter subscription ID: " sub_id
-	if [ -z "$sub_id" ]; then
-		echo "Subscription ID cannot be empty"
-		exit 1
+	#Check if logged in
+	if ! az account show >/dev/null 2>&1; then
+ 		echo "[INFO] No active session found. Logging in..."
+		az login
+	else
+		echo "[INFO] Already logged in"
 	fi
 
+	sub_id=$(az account show --query id -o tsv)
+	echo "Subscription ID: $sub_id ✅"
+	az account set --subscription "$sub_id"
+	echo "[INFO] Azure ready ✅"
 }
 
 
@@ -30,58 +27,76 @@ validate_inputs() {
 	[ -z "$vnet_name" ] && { echo "VNet name name cannot be empty"; exit 1;}
 	[ -z "$subnet_name" ] && { echo "Subnet name cannot be empty"; exit 1;}
 	[ -z "$dns_zone" ] && { echo "DNS zone name cannot be empty"; exit 1;}
+	[ -z "$fd_profile" ] && { echo "Front Door profile cannot be empty"; exit 1; }
+	[ -z "$fd_endpoint" ] && { echo "Front Door endpoint cannot be empty"; exit 1; }
+	[ -z "$origin_group" ] && { echo "Origin group cannot be empty"; exit 1; }
+	[ -z "$origin_name" ] && { echo "Origin name cannot be empty"; exit 1; }
 }
 
 
 
 #variables
-variables(){
-	echo "[INFO] Fill in for automation:"
-	echo "1. Subscription ID"
-	get_subscription
-	read -p "2.Resource Group: " rg
-	read -p "Location: " location
-	read -p "Storage Account: " storage_account
-	read -p "Front Door Name: " fd
-	read -p " VNet name: " vnet_name
-	read -p "Subnet name: " subnet_name
-	read -p "DNS zone: " dns_zone
-	validate_inputs
-       fd_profile
-fd_endpoint
-origin_group
-origin_name
+variables() {
+	echo "[INFO] Setting variables for automation..."
+	# Resource Group
+	rg="kml_rg_main-e0aa467b2be24fc1"
 
+	# Location
+	location="eastus"
+
+	# Storage account
+	storage_account="mylabstorageforblob"
+	cdn_profile="my-cdn-profile"
+	cdn_endpoint="my-cdn-endpoint"
+	# Front Door
+	fd="my-lab-fd"
+
+	# Virtual Network and Subnet
+	vnet_name="my-lab-vnet"
+	subnet_name="my-lab-subnet"
+
+	# DNS zone
+	dns_zone="mylabzone.com"
+
+	# Front Door profile and endpoint
+	fd_profile="fd-lab-profile"
+	fd_endpoint="fd-lab-endpoint"
+
+	# Front Door origin group and origin
+	origin_group="lab-origin-group"
+	origin_name="lab-origin"
+
+	echo "[INFO] All variables set."
 }
-
-
-#Set Subscriotion
-set_subscription(){
-        echo "[INFO] Setting Subscription..."
-        az account set --subscription "$sub_id"
-}
-
 
 #Create Resource Group
-resource-group(){
-        az group create --name "$rg" --location "$location"
+resource_group() {
+	echo "[INFO] Checking if Resource Group '$rg' exists..."
+	if az group exists --name "$rg"; then
+		echo "Resource Group '$rg' already exists. Skipping creation." 
+	else
+		echo "Creating Resource Group '$rg'..."
+		az group create --name "$rg" --location "$location"
+
+	fi
+
 }
 
 
 #Create private storage Account
-create_storage_account(){
+create_storage_account() {
 	echo "[INFO] Checking if storage account exists..."
 	if az storage account show --name "$storage_account" --resource-group "$rg" >/dev/null 2>&1; then
 		echo "Storage account already exists. Skipping creation."
 	else
 		echo "Creating storage account..."
-		az storage account create --name "$storage_account" --resource-group "$rg" --location "$location" --sku \
-  Standard_LRS --kind StorageV2 --https-only true && echo "Private storage account created succesfully"
+		az storage account create --name "$storage_account" --resource-group "$rg" --location "$location" --sku Standard_LRS --kind StorageV2 --https-only true && echo "Private storage account created succesfully"
+	fi
 }
 
 
 #Enable Static Website
-enable_static_web(){
+enable_static_web() {
 	echo "[INFO] Checking if storage account exists..."
 	if ! az storage account show --name "$storage_account" --resource-group "$rg" >/dev/null 2>&1; then
         	echo "Storage account does not exist. Cannot enable static website."
@@ -97,19 +112,28 @@ enable_static_web(){
 
 #Upload website files
 upload_web_files() {
-	echo "[INFO] Looking for website-files directory in home..."
+	echo "[INFO] Uploading templates and static files..."
 
-	if [ ! -d "$HOME/blob_web_files" ]; then
-		echo "[ERROR] Directory 'blob_web_files' not found in home directory.Please create"
-		exit 1
+	# Upload templates
+	if [ -d "templates" ]; then
+		echo "[INFO] Uploading templates..."
+		az storage blob upload-batch --account-name "$storage_account" --destination '$web/templates' --source ./templates --overwrit	
+		echo "[INFO] Uploaded templatessuccessfully ✅"
+	else
+		echo "[WARNING] templates directory not found"
 	fi
 
-	cd "$HOME/blob_web_files"
+ 	# Upload static
+	if [ -d "static" ]; then
+        	echo "[INFO] Uploading static files..."
+		az storage blob upload-batch --account-name "$storage_account" --destination '$web/static' --source ./static --overwrite
+		echo "[INFO] static file upload completed ✅"
 
-	echo "[INFO] Uploading files to Azure Blob..."
-	az storage blob upload-batch --account-name "$storage_account" --destination \$web --source . --auth-mode login
+	else
+		echo "[WARNING] static directory not found"
+	fi
+	echo "[INFO] Upload completed ✅"
 
-	echo "[INFO] Files uploaded successfully"
 }
 
 
@@ -125,7 +149,7 @@ vnet_pe() {
 	echo "[INFO] Disabling network policies for subnet..."
 	az network vnet subnet update --resource-group "$rg" --vnet-name "$vnet_name" --name "$subnet_name" --disable-private-endpoint-network-policies true
 
-	echo "[INFO] Creating Private DNS zone..." 
+	echo "[INFO] Creating Private DNS zone..."
 	az network private-dns zone create --resource-group "$rg" --name "$dns_zone"
 
 	echo "[INFO] Linking DNS with VNet..."
@@ -147,7 +171,8 @@ vnet_pe() {
 #Configure Front door
 front_door() {
 	echo "[INFO] Creating Front Door profile..."
-	az afd profile create --resource-group "$rg" --name "$fd_profile" --sku Premium_AzureFrontDoor
+	az afd profile create --resource-group "$rg" --name "$fd_profile" --sku Standard_AzureFrontDoor
+
 
 	echo "[INFO] Creating Front Door endpoint..."
 	az afd endpoint create --resource-group "$rg" --profile-name "$fd_profile" --name "$fd_endpoint"
@@ -178,50 +203,33 @@ front_door() {
 
 #Create CDN
 cdn() {
-    echo "[INFO] Preparing storage account for CDN..."
+	echo "[INFO] Preparing storage account for CDN..."
 
     # Check current public access setting
-    public_access=$(az storage account show \
-        --name "$storage_account" \
-        --resource-group "$rg" \
-        --query "allowBlobPublicAccess" -o tsv)
+	public_access=$(az storage account show --name "$storage_account" --resource-group "$rg" --query "allowBlobPublicAccess" -o tsv)
 
-    if [ "$public_access" != "true" ]; then
-        echo "[WARNING] Public access is disabled. Enabling it for CDN..."
+	if [ "$public_access" != "true" ]; then
+		echo "[WARNING] Public access is disabled. Enabling it for CDN..."
 
-        az storage account update \
-            --name "$storage_account" \
-            --resource-group "$rg" \
-            --allow-blob-public-access true
+		az storage account update --name "$storage_account" --resource-group "$rg" --allow-blob-public-access true
 
-        echo "[INFO] Public access enabled."
-    else
-        echo "[INFO] Public access already enabled."
-    fi
+		echo "[INFO] Public access enabled."
+	else
 
-    echo "[INFO] Creating CDN profile..."
-    az cdn profile create \
-        --name "$cdn_profile" \
-        --resource-group "$rg" \
-        --sku Standard_Microsoft
+		echo "[INFO] Public access already enabled."
+	fi
 
-    echo "[INFO] Creating CDN endpoint..."
-    az cdn endpoint create \
-        --name "$cdn_endpoint" \
-        --profile-name "$cdn_profile" \
-        --resource-group "$rg" \
-        --origin "${storage_account}.z6.web.core.windows.net" \
-        --origin-host-header "${storage_account}.z6.web.core.windows.net"
+	echo "[INFO] Creating CDN profile..."
+	az cdn profile create --name "$cdn_profile" --resource-group "$rg" --sku Standard_Microsoft
 
-    echo "[INFO] Fetching CDN endpoint URL..."
+	echo "[INFO] Creating CDN endpoint..."
+		az cdn endpoint create --name "$cdn_endpoint" --profile-name "$cdn_profile" --resource-group "$rg" --origin "${storage_account}.z6.web.core.windows.net" --origin-host-header "${storage_account}.z6.web.core.windows.net"
 
-    cdn_url=$(az cdn endpoint show \
-        --name "$cdn_endpoint" \
-        --profile-name "$cdn_profile" \
-        --resource-group "$rg" \
-        --query hostName -o tsv)
+	echo "[INFO] Fetching CDN endpoint URL..."
 
-    echo "[SUCCESS] Your website is live at:"
+	cdn_url=$(az cdn endpoint show --name "$cdn_endpoint" --profile-name "$cdn_profile" --resource-group "$rg" --query hostName -o tsv)
+
+	echo "[SUCCESS] Your website is live at:"
 	echo "https://$cdn_url"
 }
 
@@ -239,19 +247,24 @@ output_url() {
 read -p "Choose deployment type (cdn/fd): " choice
 
 if [ "$choice" == "cdn" ]; then
-    create_storage_ac
-    enable_static_web
-    upload_web_files
-    cdn
-    cdn_output_url
-
+	azure_login
+	variables
+	create_storage_account
+	enable_static_web
+    	upload_web_files
+    	cdn
+	#cdn_output_url
 elif [ "$choice" == "fd" ]; then
-    create_storage_ac
-    enable_static_web
-    upload_web_files
-    vnet_pe
-    front_door
-    output_url
+	azure_login
+	variables
+#	validate_inputs
+#	resource_group
+	create_storage_account
+	enable_static_web
+	upload_web_files
+    	vnet_pe
+    	front_door
+    	output_url
 
 else
     echo "Invalid choice"
